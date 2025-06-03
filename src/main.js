@@ -728,17 +728,21 @@ class PirateHelmCockpit {
     }
     
     createGauges() {
+        // Add debugging text
+        this.createDebugText();
+        
         const gaugeData = [
-            { name: 'KNOTS', pos: { x: -2.5, y: 2.5, z: -1 } },
-            { name: 'DEPTH', pos: { x: 0, y: 2.7, z: -1.2 } },
-            { name: 'DRIFT', pos: { x: 2.5, y: 2.5, z: -1 } }
+            { name: 'KNOTS', pos: { x: -3.5, y: 2.5, z: -1 }, scale: 2 },
+            { name: 'COMPASS', pos: { x: 0, y: 2.7, z: -1.2 }, scale: 3 }, // Triple size center gauge
+            { name: 'DRIFT', pos: { x: 3.5, y: 2.5, z: -1 }, scale: 2 }
         ];
         
         gaugeData.forEach((data, index) => {
             const gaugeGroup = new THREE.Group();
             
-            // Gauge housing
-            const housingGeo = new THREE.CylinderGeometry(0.18, 0.2, 0.15, 16);
+            // Gauge housing - scaled based on data.scale
+            const baseSize = data.scale || 1;
+            const housingGeo = new THREE.CylinderGeometry(0.18 * baseSize, 0.2 * baseSize, 0.15 * baseSize, 16);
             const housingMat = new THREE.MeshStandardMaterial({
                 color: 0xc9a961,
                 roughness: 0.4,
@@ -749,19 +753,19 @@ class PirateHelmCockpit {
             housing.castShadow = true;
             gaugeGroup.add(housing);
             
-            // Gauge face
-            const faceGeo = new THREE.CircleGeometry(0.16, 32);
+            // Gauge face - scaled
+            const faceGeo = new THREE.CircleGeometry(0.16 * baseSize, 32);
             const faceMat = new THREE.MeshStandardMaterial({
                 color: 0x1a1a1a,
                 roughness: 0.2,
                 metalness: 0.1
             });
             const face = new THREE.Mesh(faceGeo, faceMat);
-            face.position.z = 0.08;
+            face.position.z = 0.08 * baseSize;
             gaugeGroup.add(face);
             
-            // Glass
-            const glassGeo = new THREE.SphereGeometry(0.17, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+            // Glass - scaled
+            const glassGeo = new THREE.SphereGeometry(0.17 * baseSize, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
             const glassMat = new THREE.MeshPhysicalMaterial({
                 color: 0xffffff,
                 metalness: 0,
@@ -774,11 +778,11 @@ class PirateHelmCockpit {
             });
             const glass = new THREE.Mesh(glassGeo, glassMat);
             glass.rotation.x = -Math.PI / 2;
-            glass.position.z = 0.08;
+            glass.position.z = 0.08 * baseSize;
             gaugeGroup.add(glass);
             
-            // Needle
-            const needleGeo = new THREE.BoxGeometry(0.015, 0.14, 0.005);
+            // Needle - scaled
+            const needleGeo = new THREE.BoxGeometry(0.015 * baseSize, 0.14 * baseSize, 0.005);
             const needleMat = new THREE.MeshStandardMaterial({
                 color: 0xff0000,
                 emissive: 0xff0000,
@@ -787,12 +791,12 @@ class PirateHelmCockpit {
                 metalness: 0.7
             });
             const needle = new THREE.Mesh(needleGeo, needleMat);
-            needle.position.z = 0.09;
-            needle.geometry.translate(0, 0.07, 0);
+            needle.position.z = 0.09 * baseSize;
+            needle.geometry.translate(0, 0.07 * baseSize, 0);
             gaugeGroup.add(needle);
             
             gaugeGroup.position.set(data.pos.x, data.pos.y, data.pos.z);
-            gaugeGroup.lookAt(0, 1.8, 4);   // Facing toward viewer
+            gaugeGroup.lookAt(0, 1.8, 4);  // Try facing toward viewer for debugging
             
             // Make gauge draggable
             gaugeGroup.userData = { 
@@ -801,9 +805,82 @@ class PirateHelmCockpit {
                 originalPosition: { x: data.pos.x, y: data.pos.y, z: data.pos.z }
             };
             
+            // Add label text to gauge
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(data.name, 128, 48);
+            
+            const labelTexture = new THREE.CanvasTexture(canvas);
+            const labelMat = new THREE.SpriteMaterial({ map: labelTexture });
+            const label = new THREE.Sprite(labelMat);
+            label.scale.set(0.5 * baseSize, 0.125 * baseSize, 1);
+            label.position.y = -0.3 * baseSize;
+            gaugeGroup.add(label);
+            
             this.gauges.push({ group: gaugeGroup, needle, name: data.name });
             this.scene.add(gaugeGroup);
         });
+    }
+    
+    createDebugText() {
+        // Create FRONT indicator (green box with label)
+        const frontGroup = new THREE.Group();
+        const frontBoxGeo = new THREE.BoxGeometry(3, 0.8, 0.2);
+        const frontBoxMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const frontBox = new THREE.Mesh(frontBoxGeo, frontBoxMat);
+        frontGroup.add(frontBox);
+        
+        // Front label
+        const frontCanvas = document.createElement('canvas');
+        frontCanvas.width = 256;
+        frontCanvas.height = 64;
+        const frontCtx = frontCanvas.getContext('2d');
+        frontCtx.fillStyle = '#000000';
+        frontCtx.font = 'bold 48px Arial';
+        frontCtx.textAlign = 'center';
+        frontCtx.fillText('FRONT', 128, 48);
+        
+        const frontLabelTexture = new THREE.CanvasTexture(frontCanvas);
+        const frontLabelMat = new THREE.SpriteMaterial({ map: frontLabelTexture });
+        const frontLabel = new THREE.Sprite(frontLabelMat);
+        frontLabel.scale.set(2, 0.5, 1);
+        frontLabel.position.z = 0.2;
+        frontGroup.add(frontLabel);
+        
+        frontGroup.position.set(0, 4, 5);
+        this.scene.add(frontGroup);
+        
+        // Create BACK indicator (red box with label)
+        const backGroup = new THREE.Group();
+        const backBoxGeo = new THREE.BoxGeometry(3, 0.8, 0.2);
+        const backBoxMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const backBox = new THREE.Mesh(backBoxGeo, backBoxMat);
+        backGroup.add(backBox);
+        
+        // Back label
+        const backCanvas = document.createElement('canvas');
+        backCanvas.width = 256;
+        backCanvas.height = 64;
+        const backCtx = backCanvas.getContext('2d');
+        backCtx.fillStyle = '#ffffff';
+        backCtx.font = 'bold 48px Arial';
+        backCtx.textAlign = 'center';
+        backCtx.fillText('BACK', 128, 48);
+        
+        const backLabelTexture = new THREE.CanvasTexture(backCanvas);
+        const backLabelMat = new THREE.SpriteMaterial({ map: backLabelTexture });
+        const backLabel = new THREE.Sprite(backLabelMat);
+        backLabel.scale.set(2, 0.5, 1);
+        backLabel.position.z = 0.2;
+        backGroup.add(backLabel);
+        
+        backGroup.position.set(0, 4, -5);
+        this.scene.add(backGroup);
     }
     
     createParticles() {
@@ -1465,12 +1542,12 @@ class PirateHelmCockpit {
             metalness: 0
         });
         
-        // Main mast (center)
-        const mainMastGeo = new THREE.CylinderGeometry(0.6, 0.8, 35, 16);
-        const mainMast = new THREE.Mesh(mainMastGeo, mastMat);
-        mainMast.position.set(0, 17.5, -3);
-        mainMast.castShadow = true;
-        this.scene.add(mainMast);
+        // Main mast (center) - REMOVED as it's too close to the wheel
+        // const mainMastGeo = new THREE.CylinderGeometry(0.6, 0.8, 35, 16);
+        // const mainMast = new THREE.Mesh(mainMastGeo, mastMat);
+        // mainMast.position.set(0, 17.5, -3);
+        // mainMast.castShadow = true;
+        // this.scene.add(mainMast);
         
         // Fore mast (front)
         const foreMastGeo = new THREE.CylinderGeometry(0.5, 0.7, 30, 16);
@@ -1486,12 +1563,12 @@ class PirateHelmCockpit {
         mizzenMast.castShadow = true;
         this.scene.add(mizzenMast);
         
-        // Main sail (large center sail)
-        const mainSailGeo = new THREE.PlaneGeometry(20, 25);
-        const mainSail = new THREE.Mesh(mainSailGeo, sailMat);
-        mainSail.position.set(0, 20, -2);
-        mainSail.rotation.y = Math.PI / 16; // Slight wind curve
-        this.scene.add(mainSail);
+        // Main sail (large center sail) - REMOVED with main mast
+        // const mainSailGeo = new THREE.PlaneGeometry(20, 25);
+        // const mainSail = new THREE.Mesh(mainSailGeo, sailMat);
+        // mainSail.position.set(0, 20, -2);
+        // mainSail.rotation.y = Math.PI / 16; // Slight wind curve
+        // this.scene.add(mainSail);
         
         // Fore sail
         const foreSailGeo = new THREE.PlaneGeometry(16, 20);
@@ -1500,12 +1577,12 @@ class PirateHelmCockpit {
         foreSail.rotation.y = -Math.PI / 20;
         this.scene.add(foreSail);
         
-        // Top sail (main)
-        const topSailGeo = new THREE.PlaneGeometry(15, 12);
-        const topSail = new THREE.Mesh(topSailGeo, sailMat);
-        topSail.position.set(0, 30, -2);
-        topSail.rotation.y = Math.PI / 12;
-        this.scene.add(topSail);
+        // Top sail (main) - REMOVED with main mast
+        // const topSailGeo = new THREE.PlaneGeometry(15, 12);
+        // const topSail = new THREE.Mesh(topSailGeo, sailMat);
+        // topSail.position.set(0, 30, -2);
+        // topSail.rotation.y = Math.PI / 12;
+        // this.scene.add(topSail);
         
         // Jib sails (triangular front sails)
         for (let i = 0; i < 3; i++) {
@@ -1536,17 +1613,18 @@ class PirateHelmCockpit {
         mizzenSail.rotation.y = Math.PI / 2;
         this.scene.add(mizzenSail);
         
-        // Crow's nest
-        const crowsNestGeo = new THREE.CylinderGeometry(2, 1.5, 1, 12);
-        const crowsNest = new THREE.Mesh(crowsNestGeo, mastMat);
-        crowsNest.position.set(0, 28, -3);
-        this.scene.add(crowsNest);
+        // Crow's nest - REMOVED with main mast
+        // const crowsNestGeo = new THREE.CylinderGeometry(2, 1.5, 1, 12);
+        // const crowsNest = new THREE.Mesh(crowsNestGeo, mastMat);
+        // crowsNest.position.set(0, 28, -3);
+        // this.scene.add(crowsNest);
         
         // Cross beams (yards)
         const yards = [
-            { pos: [0, 32, -2], length: 22 },
-            { pos: [0, 27, -2], length: 25 },
-            { pos: [0, 22, -2], length: 24 },
+            // Main mast yards removed
+            // { pos: [0, 32, -2], length: 22 },
+            // { pos: [0, 27, -2], length: 25 },
+            // { pos: [0, 22, -2], length: 24 },
             { pos: [0, 25, 9], length: 18 },
             { pos: [0, 20, 9], length: 20 },
         ];
@@ -1561,11 +1639,11 @@ class PirateHelmCockpit {
         
         // Rigging ropes
         const riggingPoints = [
-            // Main mast rigging
-            { from: [0, 35, -3], to: [-12, 0, -15] },
-            { from: [0, 35, -3], to: [12, 0, -15] },
-            { from: [0, 35, -3], to: [-12, 0, 8] },
-            { from: [0, 35, -3], to: [12, 0, 8] },
+            // Main mast rigging - REMOVED
+            // { from: [0, 35, -3], to: [-12, 0, -15] },
+            // { from: [0, 35, -3], to: [12, 0, -15] },
+            // { from: [0, 35, -3], to: [-12, 0, 8] },
+            // { from: [0, 35, -3], to: [12, 0, 8] },
             
             // Fore mast rigging
             { from: [0, 30, 8], to: [-10, 0, 18] },
