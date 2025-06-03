@@ -728,8 +728,7 @@ class PirateHelmCockpit {
     }
     
     createGauges() {
-        // Add debugging text
-        this.createDebugText();
+        // Debugging text removed
         
         const gaugeData = [
             { name: 'KNOTS', pos: { x: -3.5, y: 2.5, z: -1 }, scale: 2 },
