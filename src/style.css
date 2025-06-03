@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Bebas+Neue&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    background: #000;
+    font-family: 'Bebas Neue', sans-serif;
+}
+
+#app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+}
+
+#canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.loading-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center, #1a2633 0%, #0a0a0a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    transition: opacity 1s ease-out;
+}
+
+.loading-screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.loading-text {
+    color: #c9a961;
+    font-size: 2rem;
+    letter-spacing: 4px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.compass-display {
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    background: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(20,20,20,0.6) 100%);
+    border: 2px solid #c9a961;
+    border-radius: 10px;
+    padding: 15px 30px;
+    backdrop-filter: blur(10px);
+    box-shadow: 
+        0 0 30px rgba(0,255,204,0.3),
+        inset 0 0 20px rgba(0,0,0,0.5);
+}
+
+.compass-value {
+    font-size: 3rem;
+    color: #00ffcc;
+    text-shadow: 
+        0 0 20px rgba(0,255,204,0.8),
+        0 0 40px rgba(0,255,204,0.4);
+    letter-spacing: 3px;
+    font-weight: 400;
+}
+
+.compass-label {
+    font-size: 0.8rem;
+    color: #c9a961;
+    letter-spacing: 5px;
+    margin-top: 5px;
+    font-family: 'Cinzel', serif;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}

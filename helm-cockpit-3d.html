@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pirate Helm Cockpit - Three.js</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+        }
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .compass-hud {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ffcc;
+            font-size: 24px;
+            text-shadow: 0 0 20px rgba(0, 255, 204, 0.8);
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border: 2px solid #00ffcc;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="compass-hud" id="compass">N 347°</div>
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.150.0/build/three.module.js';
+        import { OrbitControls } from 'https://unpkg.com/three@0.150.0/examples/jsm/controls/OrbitControls.js';
+        
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x1a2633, 5, 50);
+        
+        // Camera
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.6, 3);
+        
+        // Renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 0.8;
+        document.body.appendChild(renderer.domElement);
+        
+        // Controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI * 0.9;
+        controls.minDistance = 2;
+        controls.maxDistance = 8;
+        controls.target.set(0, 1, 0);
+        
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+        
+        const sunLight = new THREE.DirectionalLight(0xffd4a3, 1);
+        sunLight.position.set(5, 10, 5);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        scene.add(sunLight);
+        
+        const fogLight = new THREE.PointLight(0x00ffcc, 0.3, 10);
+        fogLight.position.set(0, 2, 0);
+        scene.add(fogLight);
+        
+        // Materials
+        const woodMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3a2920,
+            roughness: 0.9,
+            metalness: 0.1,
+            normalScale: new THREE.Vector2(0.5, 0.5)
+        });
+        
+        const metalMaterial = new THREE.MeshStandardMaterial({
+            color: 0x444444,
+            roughness: 0.6,
+            metalness: 0.8
+        });
+        
+        const glassMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            metalness: 0,
+            roughness: 0,
+            transmission: 0.9,
+            thickness: 0.5,
+            transparent: true
+        });
+        
+        const compassMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ffcc,
+            emissive: 0x00ffcc,
+            emissiveIntensity: 2
+        });
+        
+        // Ship deck
+        const deckGeometry = new THREE.BoxGeometry(20, 0.5, 30);
+        const deck = new THREE.Mesh(deckGeometry, woodMaterial);
+        deck.position.y = -0.25;
+        deck.receiveShadow = true;
+        scene.add(deck);
+        
+        // Helm wheel base
+        const wheelBaseGeometry = new THREE.CylinderGeometry(0.3, 0.4, 1, 8);
+        const wheelBase = new THREE.Mesh(wheelBaseGeometry, woodMaterial);
+        wheelBase.position.set(0, 0.5, 0);
+        wheelBase.castShadow = true;
+        scene.add(wheelBase);
+        
+        // Helm wheel
+        const wheelGroup = new THREE.Group();
+        
+        // Wheel rim
+        const wheelRimGeometry = new THREE.TorusGeometry(1.5, 0.1, 8, 32);
+        const wheelRim = new THREE.Mesh(wheelRimGeometry, woodMaterial);
+        wheelRim.castShadow = true;
+        wheelGroup.add(wheelRim);
+        
+        // Wheel spokes
+        for (let i = 0; i < 12; i++) {
+            const spokeGeometry = new THREE.BoxGeometry(0.08, 0.12, 1.4);
+            const spoke = new THREE.Mesh(spokeGeometry, woodMaterial);
+            spoke.rotation.z = (i * Math.PI * 2) / 12;
+            spoke.castShadow = true;
+            wheelGroup.add(spoke);
+        }
+        
+        // Central hub
+        const hubGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
+        const hub = new THREE.Mesh(hubGeometry, metalMaterial);
+        hub.rotation.x = Math.PI / 2;
+        wheelGroup.add(hub);
+        
+        // Digital compass in center
+        const compassGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.05, 32);
+        const compass = new THREE.Mesh(compassGeometry, compassMaterial);
+        compass.rotation.x = Math.PI / 2;
+        wheelGroup.add(compass);
+        
+        wheelGroup.position.set(0, 1.2, 0);
+        wheelGroup.rotation.x = Math.PI / 8;
+        scene.add(wheelGroup);
+        
+        // Gauges
+        const gaugePositions = [
+            { x: -1.5, y: 2, z: -1 },
+            { x: 0, y: 2.2, z: -1.2 },
+            { x: 1.5, y: 2, z: -1 }
+        ];
+        
+        gaugePositions.forEach((pos, index) => {
+            const gaugeGroup = new THREE.Group();
+            
+            // Gauge body
+            const gaugeBodyGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.1, 32);
+            const gaugeBody = new THREE.Mesh(gaugeBodyGeometry, metalMaterial);
+            gaugeBody.rotation.x = Math.PI / 2;
+            gaugeGroup.add(gaugeBody);
+            
+            // Gauge glass
+            const gaugeGlassGeometry = new THREE.SphereGeometry(0.14, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+            const gaugeGlass = new THREE.Mesh(gaugeGlassGeometry, glassMaterial);
+            gaugeGlass.rotation.x = -Math.PI / 2;
+            gaugeGlass.position.z = 0.05;
+            gaugeGroup.add(gaugeGlass);
+            
+            // Gauge needle
+            const needleGeometry = new THREE.BoxGeometry(0.01, 0.12, 0.01);
+            const needleMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const needle = new THREE.Mesh(needleGeometry, needleMaterial);
+            needle.position.z = 0.06;
+            needle.name = `needle${index}`;
+            gaugeGroup.add(needle);
+            
+            gaugeGroup.position.set(pos.x, pos.y, pos.z);
+            gaugeGroup.lookAt(0, 1.6, 3);
+            scene.add(gaugeGroup);
+        });
+        
+        // Mist particles
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 1000;
+        const posArray = new Float32Array(particlesCount * 3);
+        
+        for (let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 20;
+        }
+        
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.1,
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.3,
+            blending: THREE.AdditiveBlending
+        });
+        
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+        
+        // Background
+        const skyGeometry = new THREE.SphereGeometry(100, 32, 32);
+        const skyMaterial = new THREE.MeshBasicMaterial({
+            color: 0x1a2633,
+            side: THREE.BackSide
+        });
+        const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+        scene.add(sky);
+        
+        // Animation variables
+        let time = 0;
+        let shipSway = 0;
+        let compassBearing = 347;
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            time += 0.01;
+            shipSway += 0.005;
+            
+            // Ship sway
+            scene.rotation.z = Math.sin(shipSway) * 0.02;
+            scene.rotation.x = Math.cos(shipSway * 0.7) * 0.01;
+            
+            // Wheel subtle rotation
+            wheelGroup.rotation.z += 0.001;
+            
+            // Gauge needles animation
+            scene.traverse((child) => {
+                if (child.name && child.name.startsWith('needle')) {
+                    child.rotation.z = Math.sin(time + parseInt(child.name.slice(-1))) * Math.PI / 4;
+                }
+            });
+            
+            // Compass glow pulse
+            compass.material.emissiveIntensity = 2 + Math.sin(time * 2) * 0.5;
+            
+            // Particle drift
+            particlesMesh.rotation.y += 0.0002;
+            particlesMesh.position.y = Math.sin(time * 0.5) * 0.2;
+            
+            // Update compass display
+            compassBearing += (Math.random() - 0.5) * 0.5;
+            if (compassBearing >= 360) compassBearing -= 360;
+            if (compassBearing < 0) compassBearing += 360;
+            
+            const direction = compassBearing < 22.5 || compassBearing >= 337.5 ? 'N' :
+                             compassBearing < 67.5 ? 'NE' :
+                             compassBearing < 112.5 ? 'E' :
+                             compassBearing < 157.5 ? 'SE' :
+                             compassBearing < 202.5 ? 'S' :
+                             compassBearing < 247.5 ? 'SW' :
+                             compassBearing < 292.5 ? 'W' : 'NW';
+            
+            document.getElementById('compass').textContent = `${direction} ${Math.floor(compassBearing)}°`;
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Mouse interaction for wheel
+        let isMouseDown = false;
+        let mouseX = 0;
+        
+        renderer.domElement.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            mouseX = e.clientX;
+        });
+        
+        renderer.domElement.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
+        
+        renderer.domElement.addEventListener('mousemove', (e) => {
+            if (isMouseDown) {
+                const deltaX = e.clientX - mouseX;
+                wheelGroup.rotation.z += deltaX * 0.01;
+                mouseX = e.clientX;
+            }
+        });
+        
+        animate();
+    </script>
+</body>
+</html>
