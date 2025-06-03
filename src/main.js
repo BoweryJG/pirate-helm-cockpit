@@ -37,6 +37,14 @@ class PirateHelmCockpit {
             cannonBalls: []
         };
         
+        // Sound effects system
+        this.sounds = {
+            cannonFire: null,
+            cannonBoom: null,
+            reload: null
+        };
+        this.initSounds();
+        
         this.init();
     }
     
@@ -601,12 +609,143 @@ class PirateHelmCockpit {
         }
     }
     
-    // HOLLYWOOD LEVEL CANNON FIRING SYSTEM!
+    // Initialize sound effects using Web Audio API
+    initSounds() {
+        try {
+            // Create AudioContext
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create cannon fire sound (procedural)
+            this.createCannonFireSound();
+            
+            // Create boom sound (procedural)
+            this.createBoomSound();
+            
+            // Create reload sound (procedural)
+            this.createReloadSound();
+            
+            console.log("🔊 Sound effects initialized!");
+        } catch (error) {
+            console.warn("Sound effects not available:", error);
+        }
+    }
+    
+    createCannonFireSound() {
+        // Create a dramatic cannon fire sound using oscillators
+        this.sounds.cannonFire = () => {
+            if (!this.audioContext) return;
+            
+            const duration = 0.5;
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            const filter = this.audioContext.createBiquadFilter();
+            
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(80, this.audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(20, this.audioContext.currentTime + duration);
+            
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1000, this.audioContext.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + duration);
+            
+            gainNode.gain.setValueAtTime(0.8, this.audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+            
+            oscillator.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + duration);
+        };
+    }
+    
+    createBoomSound() {
+        this.sounds.cannonBoom = () => {
+            if (!this.audioContext) return;
+            
+            const duration = 1.5;
+            
+            // Bass boom
+            const bassOsc = this.audioContext.createOscillator();
+            const bassGain = this.audioContext.createGain();
+            
+            bassOsc.type = 'sine';
+            bassOsc.frequency.setValueAtTime(60, this.audioContext.currentTime);
+            bassOsc.frequency.exponentialRampToValueAtTime(20, this.audioContext.currentTime + duration);
+            
+            bassGain.gain.setValueAtTime(1.0, this.audioContext.currentTime);
+            bassGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+            
+            // Noise burst for explosion effect
+            const bufferSize = this.audioContext.sampleRate * 0.1;
+            const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+            const output = buffer.getChannelData(0);
+            
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+            }
+            
+            const noiseSource = this.audioContext.createBufferSource();
+            const noiseGain = this.audioContext.createGain();
+            const noiseFilter = this.audioContext.createBiquadFilter();
+            
+            noiseSource.buffer = buffer;
+            noiseFilter.type = 'lowpass';
+            noiseFilter.frequency.setValueAtTime(2000, this.audioContext.currentTime);
+            
+            noiseGain.gain.setValueAtTime(0.6, this.audioContext.currentTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+            
+            bassOsc.connect(bassGain);
+            bassGain.connect(this.audioContext.destination);
+            
+            noiseSource.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(this.audioContext.destination);
+            
+            bassOsc.start(this.audioContext.currentTime);
+            bassOsc.stop(this.audioContext.currentTime + duration);
+            
+            noiseSource.start(this.audioContext.currentTime);
+        };
+    }
+    
+    createReloadSound() {
+        this.sounds.reload = () => {
+            if (!this.audioContext) return;
+            
+            // Mechanical reload sound
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(200, this.audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(180, this.audioContext.currentTime + 0.1);
+            oscillator.frequency.setValueAtTime(220, this.audioContext.currentTime + 0.2);
+            
+            gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0, this.audioContext.currentTime + 0.3);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + 0.3);
+        };
+    }
+    
+    // HOLLYWOOD LEVEL CANNON FIRING SYSTEM! (Now with EPIC SOUND)
     fireAllCannons() {
         if (this.isFiring) return; // Prevent multiple firings
         
         this.isFiring = true;
         console.log("🔥 FIRING ALL CANNONS! 🔥");
+        
+        // EPIC SOUND EFFECTS!
+        if (this.sounds.cannonBoom) {
+            this.sounds.cannonBoom(); // Massive boom sound
+        }
         
         // Button visual feedback
         this.fireButton.children[0].material.emissiveIntensity = 0.5; // Dim button
@@ -628,6 +767,12 @@ class PirateHelmCockpit {
         setTimeout(() => {
             this.isFiring = false;
             this.fireButton.children[0].material.emissiveIntensity = 1.5; // Restore button
+            
+            // RELOAD SOUND EFFECT
+            if (this.sounds.reload) {
+                this.sounds.reload();
+            }
+            
             console.log("🔥 Cannons ready to fire again! 🔥");
         }, 5000);
     }
@@ -655,10 +800,17 @@ class PirateHelmCockpit {
             }
         });
         
+        // INDIVIDUAL CANNON FIRE SOUND
+        if (this.sounds.cannonFire) {
+            setTimeout(() => {
+                this.sounds.cannonFire();
+            }, Math.random() * 100); // Slight random delay for realism
+        }
+        
         // MASSIVE MUZZLE FLASH
         this.createMuzzleFlash(cannon.userData.muzzlePosition);
         
-        // SMOKE AND PARTICLE EFFECTS
+        // OPTIMIZED SMOKE AND PARTICLE EFFECTS (reduced particles to prevent freezing)
         this.createSmokeEffect(cannon.userData.muzzlePosition);
         this.createSparkEffect(cannon.userData.muzzlePosition);
         
@@ -796,8 +948,8 @@ class PirateHelmCockpit {
     }
     
     createSmokeEffect(position) {
-        // MASSIVE SMOKE CLOUD
-        const smokeCount = 200;
+        // OPTIMIZED SMOKE CLOUD (reduced particles to prevent freezing)
+        const smokeCount = 50;
         const smokeGeo = new THREE.BufferGeometry();
         const smokePositions = new Float32Array(smokeCount * 3);
         const smokeVelocities = new Float32Array(smokeCount * 3);
@@ -876,8 +1028,8 @@ class PirateHelmCockpit {
     }
     
     createSparkEffect(position) {
-        // BRILLIANT SPARKS
-        const sparkCount = 100;
+        // OPTIMIZED BRILLIANT SPARKS (reduced particles to prevent freezing)
+        const sparkCount = 30;
         const sparkGeo = new THREE.BufferGeometry();
         const sparkPositions = new Float32Array(sparkCount * 3);
         const sparkVelocities = new Float32Array(sparkCount * 3);
@@ -1882,7 +2034,16 @@ class PirateHelmCockpit {
                 const fireButtonIntersects = this.raycaster.intersectObjects([this.fireButton], true);
                 if (fireButtonIntersects.length > 0) {
                     console.log("🔥 FIRE BUTTON CLICKED! 🔥");
-                    this.fireAllCannons();
+                    
+                    // Resume audio context if needed (browser requirement)
+                    if (this.audioContext && this.audioContext.state === 'suspended') {
+                        this.audioContext.resume().then(() => {
+                            console.log("🔊 Audio enabled!");
+                            this.fireAllCannons();
+                        });
+                    } else {
+                        this.fireAllCannons();
+                    }
                     return; // Don't process other interactions
                 }
             }
