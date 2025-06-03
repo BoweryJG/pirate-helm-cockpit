@@ -722,8 +722,8 @@ class PirateHelmCockpit {
         this.wheelGroup.add(anchorGroup);
         
         this.wheelGroup.position.set(0, 1.2, 0);
-        this.wheelGroup.rotation.x = Math.PI / 8;  // Flipped back to original orientation
-        this.wheelGroup.rotation.y = Math.PI;      // Rotated 180 degrees around Y-axis
+        this.wheelGroup.rotation.x = -Math.PI / 8;  // Flipped to face viewer
+        this.wheelGroup.rotation.y = 0;            // Facing forward
         this.scene.add(this.wheelGroup);
     }
     
@@ -792,7 +792,7 @@ class PirateHelmCockpit {
             gaugeGroup.add(needle);
             
             gaugeGroup.position.set(data.pos.x, data.pos.y, data.pos.z);
-            gaugeGroup.lookAt(0, 1.8, -4);  // Flipped to face away from viewer
+            gaugeGroup.lookAt(0, 1.8, 4);   // Facing toward viewer
             
             // Make gauge draggable
             gaugeGroup.userData = { 
