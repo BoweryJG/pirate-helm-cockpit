@@ -26,6 +26,17 @@ class PirateHelmCockpit {
             offset: new THREE.Vector3()
         };
         
+        // Cannon firing system
+        this.cannons = [];
+        this.fireButton = null;
+        this.isFiring = false;
+        this.cannonEffects = {
+            muzzleFlashes: [],
+            smokeParticles: [],
+            sparkParticles: [],
+            cannonBalls: []
+        };
+        
         this.init();
     }
     
@@ -489,6 +500,14 @@ class PirateHelmCockpit {
             cannonGroup.position.set(-7, 0.8, -6 + i * 4);
             cannonGroup.rotation.y = -Math.PI / 12; // Slight angle outward
             cannonGroup.castShadow = true;
+            
+            // Store cannon data for firing system
+            cannonGroup.userData = {
+                side: 'port',
+                muzzlePosition: new THREE.Vector3(-9.8, 0.8, -6 + i * 4),
+                direction: new THREE.Vector3(-1, 0, 0).applyEuler(new THREE.Euler(0, -Math.PI / 12, 0))
+            };
+            this.cannons.push(cannonGroup);
             this.scene.add(cannonGroup);
         }
         
@@ -533,6 +552,14 @@ class PirateHelmCockpit {
             cannonGroup.position.set(7, 0.8, -6 + i * 4);
             cannonGroup.rotation.y = Math.PI / 12; // Slight angle outward
             cannonGroup.castShadow = true;
+            
+            // Store cannon data for firing system
+            cannonGroup.userData = {
+                side: 'starboard',
+                muzzlePosition: new THREE.Vector3(9.8, 0.8, -6 + i * 4),
+                direction: new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, Math.PI / 12, 0))
+            };
+            this.cannons.push(cannonGroup);
             this.scene.add(cannonGroup);
         }
         
@@ -562,8 +589,411 @@ class PirateHelmCockpit {
             
             cannonGroup.position.set(side, 1.2, 14);
             cannonGroup.castShadow = true;
+            
+            // Store bow chaser data for firing system
+            cannonGroup.userData = {
+                side: side < 0 ? 'bow-port' : 'bow-starboard',
+                muzzlePosition: new THREE.Vector3(side, 1.2, 18),
+                direction: new THREE.Vector3(0, 0, 1)
+            };
+            this.cannons.push(cannonGroup);
             this.scene.add(cannonGroup);
         }
+    }
+    
+    // HOLLYWOOD LEVEL CANNON FIRING SYSTEM!
+    fireAllCannons() {
+        if (this.isFiring) return; // Prevent multiple firings
+        
+        this.isFiring = true;
+        console.log("🔥 FIRING ALL CANNONS! 🔥");
+        
+        // Button visual feedback
+        this.fireButton.children[0].material.emissiveIntensity = 0.5; // Dim button
+        
+        // MASSIVE SCREEN FLASH
+        this.createScreenFlash();
+        
+        // Fire each cannon with effects
+        this.cannons.forEach((cannon, index) => {
+            setTimeout(() => {
+                this.fireSingleCannon(cannon);
+            }, index * 50); // Slight delay for realism
+        });
+        
+        // EPIC CAMERA SHAKE
+        this.createCameraShake();
+        
+        // Cooldown period
+        setTimeout(() => {
+            this.isFiring = false;
+            this.fireButton.children[0].material.emissiveIntensity = 1.5; // Restore button
+            console.log("🔥 Cannons ready to fire again! 🔥");
+        }, 5000);
+    }
+    
+    fireSingleCannon(cannon) {
+        // CANNON RECOIL ANIMATION
+        const originalPos = cannon.position.clone();
+        const recoilDistance = cannon.userData.side.includes('bow') ? -2 : 
+                              cannon.userData.side === 'port' ? 2 : -2;
+        
+        gsap.to(cannon.position, {
+            x: originalPos.x + (cannon.userData.side === 'port' ? recoilDistance : 
+                               cannon.userData.side === 'starboard' ? recoilDistance : 0),
+            z: originalPos.z + (cannon.userData.side.includes('bow') ? recoilDistance : 0),
+            duration: 0.1,
+            ease: "power3.out",
+            onComplete: () => {
+                // Snap back
+                gsap.to(cannon.position, {
+                    x: originalPos.x,
+                    z: originalPos.z,
+                    duration: 0.3,
+                    ease: "elastic.out(1, 0.5)"
+                });
+            }
+        });
+        
+        // MASSIVE MUZZLE FLASH
+        this.createMuzzleFlash(cannon.userData.muzzlePosition);
+        
+        // SMOKE AND PARTICLE EFFECTS
+        this.createSmokeEffect(cannon.userData.muzzlePosition);
+        this.createSparkEffect(cannon.userData.muzzlePosition);
+        
+        // CANNONBALL TRAIL
+        this.createCannonBall(cannon.userData.muzzlePosition, cannon.userData.direction);
+    }
+    
+    createScreenFlash() {
+        // Create massive white flash overlay
+        const flashDiv = document.createElement('div');
+        flashDiv.style.position = 'fixed';
+        flashDiv.style.top = '0';
+        flashDiv.style.left = '0';
+        flashDiv.style.width = '100vw';
+        flashDiv.style.height = '100vh';
+        flashDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+        flashDiv.style.zIndex = '9999';
+        flashDiv.style.pointerEvents = 'none';
+        document.body.appendChild(flashDiv);
+        
+        // Fade out the flash
+        gsap.to(flashDiv, {
+            opacity: 0,
+            duration: 0.3,
+            ease: "power2.out",
+            onComplete: () => {
+                document.body.removeChild(flashDiv);
+            }
+        });
+        
+        // Boost bloom effect temporarily
+        if (this.composer && this.composer.passes[1]) {
+            gsap.to(this.composer.passes[1], {
+                strength: 3.0,
+                duration: 0.1,
+                ease: "power2.out",
+                onComplete: () => {
+                    gsap.to(this.composer.passes[1], {
+                        strength: 0.5,
+                        duration: 1.0,
+                        ease: "power2.out"
+                    });
+                }
+            });
+        }
+    }
+    
+    createCameraShake() {
+        const originalPosition = this.camera.position.clone();
+        const originalRotation = this.camera.rotation.clone();
+        
+        // Intense shake
+        gsap.to(this.camera.position, {
+            x: originalPosition.x + (Math.random() - 0.5) * 2,
+            y: originalPosition.y + (Math.random() - 0.5) * 1,
+            z: originalPosition.z + (Math.random() - 0.5) * 1,
+            duration: 0.1,
+            ease: "power2.out",
+            repeat: 10,
+            yoyo: true,
+            onComplete: () => {
+                gsap.to(this.camera.position, {
+                    x: originalPosition.x,
+                    y: originalPosition.y,
+                    z: originalPosition.z,
+                    duration: 0.5,
+                    ease: "elastic.out(1, 0.3)"
+                });
+            }
+        });
+        
+        // Rotational shake
+        gsap.to(this.camera.rotation, {
+            x: originalRotation.x + (Math.random() - 0.5) * 0.2,
+            y: originalRotation.y + (Math.random() - 0.5) * 0.2,
+            z: originalRotation.z + (Math.random() - 0.5) * 0.1,
+            duration: 0.1,
+            ease: "power2.out",
+            repeat: 8,
+            yoyo: true,
+            onComplete: () => {
+                gsap.to(this.camera.rotation, {
+                    x: originalRotation.x,
+                    y: originalRotation.y,
+                    z: originalRotation.z,
+                    duration: 0.5,
+                    ease: "elastic.out(1, 0.3)"
+                });
+            }
+        });
+    }
+    
+    createMuzzleFlash(position) {
+        // MASSIVE BRIGHT FLASH SPHERE
+        const flashGeo = new THREE.SphereGeometry(2, 16, 16);
+        const flashMat = new THREE.MeshBasicMaterial({
+            color: 0xffaa00,
+            transparent: true,
+            opacity: 1.0,
+            blending: THREE.AdditiveBlending
+        });
+        const flash = new THREE.Mesh(flashGeo, flashMat);
+        flash.position.copy(position);
+        this.scene.add(flash);
+        
+        // Animate flash
+        gsap.fromTo(flash.scale, 
+            { x: 0, y: 0, z: 0 },
+            { x: 3, y: 3, z: 3, duration: 0.1, ease: "power3.out" }
+        );
+        gsap.to(flashMat, {
+            opacity: 0,
+            duration: 0.3,
+            ease: "power2.out",
+            onComplete: () => {
+                this.scene.remove(flash);
+                flash.geometry.dispose();
+                flash.material.dispose();
+            }
+        });
+        
+        // Add point light for dramatic lighting
+        const flashLight = new THREE.PointLight(0xffaa00, 20, 50);
+        flashLight.position.copy(position);
+        this.scene.add(flashLight);
+        
+        gsap.to(flashLight, {
+            intensity: 0,
+            duration: 0.5,
+            ease: "power2.out",
+            onComplete: () => {
+                this.scene.remove(flashLight);
+            }
+        });
+    }
+    
+    createSmokeEffect(position) {
+        // MASSIVE SMOKE CLOUD
+        const smokeCount = 200;
+        const smokeGeo = new THREE.BufferGeometry();
+        const smokePositions = new Float32Array(smokeCount * 3);
+        const smokeVelocities = new Float32Array(smokeCount * 3);
+        const smokeSizes = new Float32Array(smokeCount);
+        
+        for (let i = 0; i < smokeCount; i++) {
+            // Start at cannon muzzle
+            smokePositions[i * 3] = position.x + (Math.random() - 0.5) * 2;
+            smokePositions[i * 3 + 1] = position.y + (Math.random() - 0.5) * 1;
+            smokePositions[i * 3 + 2] = position.z + (Math.random() - 0.5) * 2;
+            
+            // Random velocities
+            smokeVelocities[i * 3] = (Math.random() - 0.5) * 5;
+            smokeVelocities[i * 3 + 1] = Math.random() * 3 + 2; // Upward
+            smokeVelocities[i * 3 + 2] = (Math.random() - 0.5) * 5;
+            
+            smokeSizes[i] = Math.random() * 2 + 1;
+        }
+        
+        smokeGeo.setAttribute('position', new THREE.BufferAttribute(smokePositions, 3));
+        smokeGeo.setAttribute('velocity', new THREE.BufferAttribute(smokeVelocities, 3));
+        smokeGeo.setAttribute('size', new THREE.BufferAttribute(smokeSizes, 1));
+        
+        const smokeMat = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 },
+                opacity: { value: 0.8 }
+            },
+            vertexShader: `
+                attribute float size;
+                attribute vec3 velocity;
+                varying float vSize;
+                uniform float time;
+                void main() {
+                    vSize = size;
+                    vec3 pos = position + velocity * time;
+                    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                    gl_PointSize = size * 100.0 / -mvPosition.z;
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                varying float vSize;
+                uniform float opacity;
+                void main() {
+                    float dist = distance(gl_PointCoord, vec2(0.5));
+                    if (dist > 0.5) discard;
+                    float alpha = (1.0 - dist * 2.0) * opacity;
+                    gl_FragColor = vec4(0.3, 0.3, 0.3, alpha);
+                }
+            `,
+            transparent: true,
+            blending: THREE.NormalBlending,
+            depthWrite: false
+        });
+        
+        const smoke = new THREE.Points(smokeGeo, smokeMat);
+        this.scene.add(smoke);
+        
+        // Animate smoke
+        gsap.to(smokeMat.uniforms.time, {
+            value: 3.0,
+            duration: 3.0,
+            ease: "power1.out"
+        });
+        gsap.to(smokeMat.uniforms.opacity, {
+            value: 0,
+            duration: 3.0,
+            ease: "power2.out",
+            onComplete: () => {
+                this.scene.remove(smoke);
+                smoke.geometry.dispose();
+                smoke.material.dispose();
+            }
+        });
+    }
+    
+    createSparkEffect(position) {
+        // BRILLIANT SPARKS
+        const sparkCount = 100;
+        const sparkGeo = new THREE.BufferGeometry();
+        const sparkPositions = new Float32Array(sparkCount * 3);
+        const sparkVelocities = new Float32Array(sparkCount * 3);
+        
+        for (let i = 0; i < sparkCount; i++) {
+            sparkPositions[i * 3] = position.x;
+            sparkPositions[i * 3 + 1] = position.y;
+            sparkPositions[i * 3 + 2] = position.z;
+            
+            sparkVelocities[i * 3] = (Math.random() - 0.5) * 20;
+            sparkVelocities[i * 3 + 1] = Math.random() * 10 + 5;
+            sparkVelocities[i * 3 + 2] = (Math.random() - 0.5) * 20;
+        }
+        
+        sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
+        sparkGeo.setAttribute('velocity', new THREE.BufferAttribute(sparkVelocities, 3));
+        
+        const sparkMat = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 },
+                opacity: { value: 1.0 }
+            },
+            vertexShader: `
+                attribute vec3 velocity;
+                uniform float time;
+                void main() {
+                    vec3 pos = position + velocity * time - vec3(0, 9.8 * time * time * 0.5, 0);
+                    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                    gl_PointSize = 5.0;
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                uniform float opacity;
+                void main() {
+                    float dist = distance(gl_PointCoord, vec2(0.5));
+                    if (dist > 0.5) discard;
+                    gl_FragColor = vec4(1.0, 0.7, 0.2, opacity);
+                }
+            `,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        
+        const sparks = new THREE.Points(sparkGeo, sparkMat);
+        this.scene.add(sparks);
+        
+        gsap.to(sparkMat.uniforms.time, {
+            value: 2.0,
+            duration: 2.0,
+            ease: "power1.out"
+        });
+        gsap.to(sparkMat.uniforms.opacity, {
+            value: 0,
+            duration: 1.5,
+            ease: "power2.out",
+            onComplete: () => {
+                this.scene.remove(sparks);
+                sparks.geometry.dispose();
+                sparks.material.dispose();
+            }
+        });
+    }
+    
+    createCannonBall(position, direction) {
+        // VISIBLE CANNONBALL TRAIL
+        const ballGeo = new THREE.SphereGeometry(0.2, 8, 8);
+        const ballMat = new THREE.MeshBasicMaterial({ color: 0x333333 });
+        const ball = new THREE.Mesh(ballGeo, ballMat);
+        ball.position.copy(position);
+        this.scene.add(ball);
+        
+        // Create trail effect
+        const trailGeo = new THREE.CylinderGeometry(0.05, 0.1, 5, 8);
+        const trailMat = new THREE.MeshBasicMaterial({
+            color: 0x666666,
+            transparent: true,
+            opacity: 0.7
+        });
+        const trail = new THREE.Mesh(trailGeo, trailMat);
+        trail.lookAt(direction);
+        trail.position.copy(position);
+        this.scene.add(trail);
+        
+        // Animate cannonball flying away
+        const targetPos = position.clone().add(direction.clone().multiplyScalar(100));
+        gsap.to(ball.position, {
+            x: targetPos.x,
+            y: targetPos.y - 20, // Gravity effect
+            z: targetPos.z,
+            duration: 3.0,
+            ease: "power1.out"
+        });
+        
+        gsap.to(trail.position, {
+            x: targetPos.x,
+            y: targetPos.y - 20,
+            z: targetPos.z,
+            duration: 3.0,
+            ease: "power1.out",
+            onComplete: () => {
+                this.scene.remove(ball);
+                this.scene.remove(trail);
+                ball.geometry.dispose();
+                ball.material.dispose();
+                trail.geometry.dispose();
+                trail.material.dispose();
+            }
+        });
+        
+        gsap.to(trailMat, {
+            opacity: 0,
+            duration: 1.0,
+            ease: "power2.out"
+        });
     }
     
     createHelm() {
@@ -677,6 +1107,72 @@ class PirateHelmCockpit {
         const ring = new THREE.Mesh(ringGeo, ringMat);
         ring.rotation.x = Math.PI / 2;
         this.wheelGroup.add(ring);
+        
+        // MASSIVE FIRE BUTTON - Hollywood style!
+        const fireButtonGroup = new THREE.Group();
+        
+        // Main button cylinder - large and prominent
+        const buttonGeo = new THREE.CylinderGeometry(0.2, 0.25, 0.15, 16);
+        const buttonMat = new THREE.MeshStandardMaterial({
+            color: 0xcc2200,
+            emissive: 0x441100,
+            emissiveIntensity: 1.5,
+            roughness: 0.3,
+            metalness: 0.9
+        });
+        const fireButtonMesh = new THREE.Mesh(buttonGeo, buttonMat);
+        fireButtonMesh.rotation.x = Math.PI / 2;
+        fireButtonGroup.add(fireButtonMesh);
+        
+        // Button face with "FIRE" text
+        const buttonFaceGeo = new THREE.CircleGeometry(0.18, 32);
+        const buttonFaceMat = new THREE.MeshStandardMaterial({
+            color: 0xff3300,
+            emissive: 0xff3300,
+            emissiveIntensity: 2.0,
+            roughness: 0.1,
+            metalness: 0.8
+        });
+        const buttonFace = new THREE.Mesh(buttonFaceGeo, buttonFaceMat);
+        buttonFace.position.z = 0.08;
+        fireButtonGroup.add(buttonFace);
+        
+        // Brass ring around button
+        const buttonRingGeo = new THREE.TorusGeometry(0.22, 0.03, 8, 32);
+        const buttonRingMat = new THREE.MeshStandardMaterial({
+            color: 0xccaa66,
+            roughness: 0.3,
+            metalness: 0.9
+        });
+        const buttonRing = new THREE.Mesh(buttonRingGeo, buttonRingMat);
+        buttonRing.rotation.x = Math.PI / 2;
+        fireButtonGroup.add(buttonRing);
+        
+        // Add "FIRE" label sprite
+        const fireCanvas = document.createElement('canvas');
+        fireCanvas.width = 256;
+        fireCanvas.height = 128;
+        const fireCtx = fireCanvas.getContext('2d');
+        fireCtx.fillStyle = '#ffffff';
+        fireCtx.font = 'bold 60px Arial';
+        fireCtx.textAlign = 'center';
+        fireCtx.fillText('FIRE', 128, 80);
+        
+        const fireLabelTexture = new THREE.CanvasTexture(fireCanvas);
+        const fireLabelMat = new THREE.SpriteMaterial({ map: fireLabelTexture });
+        const fireLabel = new THREE.Sprite(fireLabelMat);
+        fireLabel.scale.set(0.8, 0.4, 1);
+        fireLabel.position.z = 0.1;
+        fireButtonGroup.add(fireLabel);
+        
+        // Make fire button clickable
+        fireButtonGroup.userData = { 
+            isFireButton: true,
+            isDraggable: false
+        };
+        
+        this.fireButton = fireButtonGroup;
+        this.wheelGroup.add(fireButtonGroup);
         
         // Add rope wrapping details
         const ropeWrapMat = new THREE.MeshStandardMaterial({
@@ -1378,8 +1874,20 @@ class PirateHelmCockpit {
             this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
             this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
             
-            // Check for draggable objects (gauges)
+            // Check for clickable objects (fire button, gauges)
             this.raycaster.setFromCamera(this.mouse, this.camera);
+            
+            // Check fire button first (highest priority)
+            if (this.fireButton) {
+                const fireButtonIntersects = this.raycaster.intersectObjects([this.fireButton], true);
+                if (fireButtonIntersects.length > 0) {
+                    console.log("🔥 FIRE BUTTON CLICKED! 🔥");
+                    this.fireAllCannons();
+                    return; // Don't process other interactions
+                }
+            }
+            
+            // Check for draggable objects (gauges)
             const draggableObjects = this.gauges.map(gauge => gauge.group);
             const intersects = this.raycaster.intersectObjects(draggableObjects, true);
             
