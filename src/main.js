@@ -728,7 +728,7 @@ class PirateHelmCockpit {
     }
     
     createGauges() {
-        // Debugging text removed
+        // GitHub Actions auto-deploy test
         
         const gaugeData = [
             { name: 'KNOTS', pos: { x: -3.5, y: 2.5, z: -1 }, scale: 2 },
